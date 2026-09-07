@@ -4,6 +4,7 @@
 | --- | --- |
 | **[Provision AWS Lightsail Instance](#provision-aws-lightsail-instance)**<br>Provision the AWS Lightsail instance used to host the LLM Gateway. | [Step 1 — Open AWS Console](#step-1--open-aws-console) · [Step 2 — Search for Lightsail](#step-2--search-for-lightsail) · [Step 3 — Create Instance](#step-3--create-instance) · [Step 4 — Choose Instance Image](#step-4--choose-instance-image) · [Step 5 — Choose Instance Plan](#step-5--choose-instance-plan) · [Step 6 — Configure & Launch](#step-6--configure--launch) · [Step 7 — Instance Details](#step-7--instance-details) · [Step 8 — Connect via SSH](#step-8--connect-via-ssh) |
 | **[Install and Configure OpenClaw](#install-and-configure-openclaw)**<br>Install OpenClaw on the instance and connect it to the self-hosted Bedrock-backed gateway. | [Step 1 — Connect to the instance](#step-1--connect-to-the-instance) · [Step 2 — Install the OpenCode CLI](#step-2--install-the-opencode-cli) · [Step 3 — Install Node.js via nvm](#step-3--install-nodejs-via-nvm) · [Step 4 — Verify Node.js and npm](#step-4--verify-nodejs-and-npm) · [Step 5 — Install OpenClaw](#step-5--install-openclaw) · [Step 6 — Run the onboarding wizard](#step-6--run-the-onboarding-wizard) · [Step 7 — Review AI detection results](#step-7--review-ai-detection-results) · [Step 8 — Verify the installed files](#step-8--verify-the-installed-files) · [Step 9 — Launch OpenCode against the OpenClaw config](#step-9--launch-opencode-against-the-openclaw-config) · [Step 10 — Configure OpenClaw for a self-hosted Bedrock-proxy gateway](#step-10--configure-openclaw-for-a-self-hosted-bedrock-proxy-gateway) · [Step 11 — Known issue: AWS WAF blocks large request bodies](#step-11--known-issue-aws-waf-blocks-large-request-bodies) · [Step 12 — Restart the OpenClaw gateway](#step-12--restart-the-openclaw-gateway) · [Step 13 — Tune the context window and token budget](#step-13--tune-the-context-window-and-token-budget) |
+| **[Install Hermes and Configure](#install-hermes-and-configure)**<br>Install the Hermes Agent on its own instance and bridge it to the same AWS LLM Gateway via a custom proxy. | [Step 1 — Provision a Lightsail instance for Hermes](#step-1--provision-a-lightsail-instance-for-hermes) · [Step 2 — Install Node.js via nvm](#step-2--install-nodejs-via-nvm) · [Step 3 — Install the OpenCode CLI](#step-3--install-the-opencode-cli) · [Step 4 — Install the Hermes Agent](#step-4--install-the-hermes-agent) · [Step 5 — Onboarding: pick a terminal backend](#step-5--onboarding-pick-a-terminal-backend) · [Step 6 — Onboarding: enable messaging platforms](#step-6--onboarding-enable-messaging-platforms) · [Step 7 — Onboarding: choose which tools to enable](#step-7--onboarding-choose-which-tools-to-enable) · [Step 8 — Installation complete — reload your shell](#step-8--installation-complete--reload-your-shell) · [Step 9 — (Optional) Reconnect with your own SSH client](#step-9--optional-reconnect-with-your-own-ssh-client) · [Step 10 — Known issue: no generic Ollama-compatible provider](#step-10--known-issue-no-generic-ollama-compatible-provider--build-a-proxy-with-opencode) · [Step 11 — Verify the proxy and register it as a Hermes model alias](#step-11--verify-the-proxy-and-register-it-as-a-hermes-model-alias) · [Step 12 — Switch models and test end-to-end](#step-12--switch-models-and-test-end-to-end) |
 | **[LLM Gateway — Travel Cost Estimation Agent](#llm-gateway--travel-cost-estimation-agent)**<br>LangChain/LangGraph test script demonstrating tool calling against the AWS LLM Gateway. | [What it does](#what-it-does) *(→ [Example output](#example-output))* · [Setup](#setup) *(→ [1. Create a virtual environment](#1-create-a-virtual-environment-and-install-dependencies) · [2. Create a `.env` file](#2-create-a-env-file) · [3. Run](#3-run))* · [Project structure](#project-structure) · [How tool calling works here](#how-tool-calling-works-here) · [The `estimate_trip_cost` tool](#the-estimate_trip_cost-tool) · [Known issues & notes](#known-issues--notes) |
 
 # Provision AWS Lightsail Instance
@@ -261,6 +262,193 @@ The model's 200K-token context is a hard ceiling. To keep agent turns comfortabl
 4. Trim skill/system prompt content — every instruction token counts against the same budget.
 
 ![Tune context window](screens/openclaw/14-tune-context-window.png)
+
+---
+
+# Install Hermes and Configure
+
+Step-by-step guide to install [Hermes Agent](https://hermes-agent.nousresearch.com/) — an open source AI agent by Nous Research — on its own Lightsail instance, and connect it to the same self-hosted AWS LLM Gateway used above. Unlike OpenClaw, Hermes has no onboarding option for a generic Ollama-compatible base URL, so the gateway is fronted with a small custom proxy instead.
+
+### Step 1 — Provision a Lightsail instance for Hermes
+
+Follow the same flow as [Provision AWS Lightsail Instance](#provision-aws-lightsail-instance) to create a second instance — this one named `My-hermes-agent` (4 GB RAM, 2 vCPUs, 80 GB SSD, Ubuntu 24.04 LTS, Singapore `ap-southeast-1a`).
+
+![Name the instance](screens/hermes/01-name-instance.png)
+
+Once it's running, connect using the browser-based SSH client.
+
+![Instance running](screens/hermes/02-instance-running.png)
+
+### Step 2 — Install Node.js via nvm
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash
+\. "$HOME/.nvm/nvm.sh"
+nvm install 24
+```
+
+![Install nvm and Node 24](screens/hermes/03-install-nvm.png)
+
+Verify the install:
+
+```bash
+node -v   # v24.20.0
+npm -v    # 11.19.0
+```
+
+![Verify Node and npm](screens/hermes/04-verify-node.png)
+
+### Step 3 — Install the OpenCode CLI
+
+```bash
+curl -fsSL https://opencode.ai/install | bash
+source ~/.bashrc
+```
+
+![Install OpenCode](screens/hermes/05-install-opencode.png)
+
+### Step 4 — Install the Hermes Agent
+
+```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+```
+
+The installer bootstraps a managed `uv`, installs Python 3.11 through it, checks for Git and Node.js, and — since no C++ compiler was found (needed to build native Node modules like `node-pty`) — installs `build-essential` automatically.
+
+![Install the Hermes Agent](screens/hermes/06-install-hermes-agent.png)
+
+### Step 5 — Onboarding: pick a terminal backend
+
+The installer asks how Hermes should execute terminal/tool calls: Local, Docker, Modal, SSH, Daytona, Vercel Sandbox, or Singularity/Apptainer. Keeping the default (Local) runs everything directly on this instance.
+
+![Select terminal backend](screens/hermes/07-select-terminal-backend.png)
+
+### Step 6 — Onboarding: enable messaging platforms
+
+Next, pick which chat platforms Hermes should integrate with (Telegram, Discord, Slack, WhatsApp, Signal, and dozens more). Toggle on whichever channel you plan to use.
+
+![Select platforms to configure](screens/hermes/08-select-platforms.png)
+
+### Step 7 — Onboarding: choose which tools to enable
+
+Finally, choose which built-in tools Hermes exposes to the model — web search, browser automation, terminal/file access, code execution, vision, image/video generation, memory, cron jobs, computer use, the A2A protocol, and more. The installer's defaults are reasonable for most setups.
+
+![Select tools to enable](screens/hermes/09-select-tools.png)
+
+### Step 8 — Installation complete — reload your shell
+
+```
+Ready to go!
+  hermes            Start chatting
+  hermes gateway    Start messaging gateway
+  hermes doctor     Check for issues
+
+Your files:
+  Config:   /home/ubuntu/.hermes/config.yaml
+  API Keys: /home/ubuntu/.hermes/.env
+  Data:     /home/ubuntu/.hermes/cron/, sessions/, logs/
+  Code:     /home/ubuntu/.hermes/hermes-agent
+```
+
+![Installation complete](screens/hermes/10-installation-complete.png)
+
+Reload your shell to pick up the `hermes` command:
+
+```bash
+source ~/.bashrc
+```
+
+![Reload shell](screens/hermes/11-reload-shell.png)
+
+### Step 9 — (Optional) Reconnect with your own SSH client
+
+The browser-based terminal works, but for a longer session it's easier to use a native SSH client. Download the instance's default key from the Lightsail console's **Use your own SSH client** panel, then connect:
+
+```bash
+chmod 400 LightsailDefaultKey-ap-southeast-2.pem
+ssh -i LightsailDefaultKey-ap-southeast-2.pem ubuntu@<your-instance-public-ip>
+```
+
+If SSH rejects the key with `bad permissions` / `UNPROTECTED PRIVATE KEY FILE`, the `chmod 400` step above is required — SSH refuses private keys that are readable by other users.
+
+![Connect with your own SSH client](screens/hermes/12-connect-own-ssh-client.png)
+
+![Connected over native SSH](screens/hermes/13-connected-terminal.png)
+
+### Step 10 — Known issue: no generic Ollama-compatible provider — build a proxy with OpenCode
+
+OpenClaw's onboarding lets you point it at any Ollama-compatible base URL directly (see [Step 10](#step-10--configure-openclaw-for-a-self-hosted-bedrock-proxy-gateway) above). Hermes has no equivalent option — its custom-provider support expects a server already speaking its exact dialect. The workaround: run `opencode` from inside `~/.hermes` and have it build a small translation proxy in front of the gateway.
+
+```bash
+cd ~/.hermes
+opencode
+```
+
+At the prompt, describe the proxy and hand over the gateway's handshake info (use your own values):
+
+```
+Create an hermes ollama proxy referencing the hermes-ollama-proxy/proxy.py pattern.
+Configure the connection with this handshake info:
+url: https://<your-gateway-domain>
+api key: <your-gateway-api-key>
+model id: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+```
+
+OpenCode reads Hermes's own installed docs to find the exact custom-provider config format, then writes the proxy, a dedicated virtualenv, and — once you grant it permission to manage `~/.config/systemd/user` — installs it as a systemd **user** service so it auto-restarts and survives reboots.
+
+![OpenCode building the proxy](screens/hermes/14-opencode-building-proxy.png)
+
+![Granting systemd permission](screens/hermes/15-systemd-permission.png)
+
+### Step 11 — Verify the proxy and register it as a Hermes model alias
+
+OpenCode registers the proxy as a custom model alias in `~/.hermes/config.yaml`:
+
+```yaml
+sonnet-gw:
+  model: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+  provider: custom
+  base_url: http://127.0.0.1:11500/v1
+  api_key: hermes-ollama-proxy
+```
+
+...and confirms the proxy answers on its own, independent of Hermes:
+
+```bash
+curl -s http://127.0.0.1:11500/v1/models
+```
+
+![Verify the proxy and alias](screens/hermes/16-verify-proxy-and-alias.png)
+
+Setup summary:
+
+- Dedicated venv at `hermes-ollama-proxy/venv` with `httpx`
+- systemd user service `hermes-ollama-proxy.service` — enabled, running on `127.0.0.1:11500`, auto-restarts, survives reboot (linger on)
+- `sonnet-gw` custom alias added to `config.yaml`, pointing Hermes at the proxy
+- Non-stream, stream, and `/v1/models` all verified working through the proxy
+
+Logs: `journalctl --user -u hermes-ollama-proxy -f`
+
+### Step 12 — Switch models and test end-to-end
+
+```
+/model sonnet-gw            # for the current session
+/model sonnet-gw --global   # to make it the default
+```
+
+The first real task revealed a genuine bug, not just a config issue: the gateway returns Claude-Code-style `<function_calls>/<invoke>/<parameter>` XML, and the proxy's initial parser treated those wrapper tags as tool names — sending garbage like `function_calls`/`invoke`/`parameter` to Hermes — and never mapped the gateway's tool names (`execute_command`, `bash_tool`, `input`) to Hermes's own (`terminal`, `command`). Symptom: the model *fabricated* plausible-looking tool output instead of ever actually running anything.
+
+```bash
+hermes -z "Create a Python program that prints the first 20 Fibonacci numbers. Write it to fibonacci.py in the current directory, then run it and show me the output." -m sonnet-gw
+```
+
+![Fibonacci test command](screens/hermes/17-fibonacci-test-command.png)
+
+After fixing the proxy — skipping the wrapper tags, aliasing `execute_command`/`bash_tool` → `terminal`, and renaming the `input`/`file_path` parameters to Hermes's `command`/`path` — the file was genuinely written to disk and executed, with real Fibonacci output.
+
+![Fibonacci test result](screens/hermes/18-fibonacci-test-result.png)
+
+![Full round-trip confirmed](screens/hermes/19-final-summary.png)
 
 ---
 
