@@ -295,7 +295,7 @@ Copy the template below into a file named `.env` in the project root. Replace th
 
 ```env
 # AWS LLM Gateway configuration
-LLM_GATEWAY_URL=http://llm-wrapper-alb-2110380302.ap-southeast-1.elb.amazonaws.com
+LLM_GATEWAY_URL=https://api.softwaresystems.app
 LLM_GATEWAY_API_KEY=your-aws-provided-api-key-here
 LLM_MODEL=global.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
