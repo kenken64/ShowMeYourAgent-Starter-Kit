@@ -68,8 +68,8 @@ Once created, the instance will show:
 | **Specs** | 4 GB RAM, 2 vCPUs, 80 GB SSD |
 | **Instance type** | General purpose |
 | **Networking** | Dual-stack |
-| **Public IPv4** | `18.143.130.248` |
-| **Private IPv4** | `172.26.11.67` |
+| **Public IPv4** | `18.xxx.xxx.xxx` |
+| **Private IPv4** | `172.xxx.xxx.xxx` |
 | **SSH username** | `ubuntu` |
 
 ![Instance Details](screens/lightsail_screen7.png)
@@ -79,7 +79,7 @@ Once created, the instance will show:
 You can connect using the **browser-based SSH client** (click **Connect using SSH**) or use your own terminal:
 
 ```bash
-ssh ubuntu@18.143.130.248
+ssh ubuntu@18.xxx.xxx.xxx
 ```
 
 ![SSH Terminal](screens/lightsail_screen8.png)
