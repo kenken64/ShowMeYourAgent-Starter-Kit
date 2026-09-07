@@ -394,7 +394,7 @@ api key: <your-gateway-api-key>
 model id: global.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
 
-OpenCode reads Hermes's own installed docs to find the exact custom-provider config format, then writes the proxy, a dedicated virtualenv, and — once you grant it permission to manage `~/.config/systemd/user` — installs it as a systemd **user** service so it auto-restarts and survives reboots.
+OpenCode reads Hermes's own installed docs to find the exact custom-provider config format, then writes the proxy, a dedicated virtualenv, and — once you grant it permission to manage `~/.config/systemd/user` — installs it as a systemd **user** service so it auto-restarts and survives reboots. The resulting script is checked into this repo at [`hermes-ollama-proxy/proxy.py`](hermes-ollama-proxy/proxy.py), reading `GATEWAY_URL` / `GATEWAY_API_KEY` from the environment rather than hardcoding them.
 
 ![OpenCode building the proxy](screens/hermes/14-opencode-building-proxy.png)
 
