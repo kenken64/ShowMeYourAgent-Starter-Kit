@@ -1,3 +1,91 @@
+# Provision AWS Lightsail Instance
+
+Step-by-step guide to provision the AWS Lightsail instance used to host the LLM Gateway.
+
+### Step 1 — Open AWS Console
+
+Log in to the [AWS Management Console](https://console.aws.amazon.com/) and make sure the region is set to **Asia Pacific (Singapore)** (`ap-southeast-1`).
+
+![AWS Console Home](screens/lightsail_screen1.png)
+
+### Step 2 — Search for Lightsail
+
+In the search bar at the top, type **"lightsail"** and select **Lightsail** (Launch and Manage Virtual Private Servers).
+
+![Search Lightsail](screens/lightsail_screen2.png)
+
+### Step 3 — Create Instance
+
+On the Lightsail home page, click **Create instance**.
+
+![Lightsail Home](screens/lightsail_screen3.png)
+
+### Step 4 — Choose Instance Image
+
+Configure the following:
+
+| Setting | Value |
+|---|---|
+| **Instance location** | Singapore, Zone A (`ap-southeast-1a`) |
+| **Platform** | Linux operating system |
+| **Blueprint** | Ubuntu 24.04 LTS |
+
+![Choose Image](screens/lightsail_screen4.png)
+
+### Step 5 — Choose Instance Plan
+
+Configure the following:
+
+| Setting | Value |
+|---|---|
+| **Plan type** | General purpose |
+| **Network type** | Dual-stack (Recommended) — includes public IPv4 + IPv6 |
+| **Size** | **$24 USD/month** — 4 GB Memory, 2 vCPUs, 80 GB SSD, 4 TB Transfer |
+
+![Choose Plan](screens/lightsail_screen5.png)
+
+### Step 6 — Configure & Launch
+
+| Setting | Value |
+|---|---|
+| **Instance name** | `MyAgent-kenneth` |
+| **Automatic snapshots** | Disabled (optional) |
+| **Tags** | None |
+
+Click **Create instance**.
+
+![Configure Instance](screens/lightsail_screen6.png)
+
+### Step 7 — Instance Details
+
+Once created, the instance will show:
+
+| Property | Value |
+|---|---|
+| **Name** | MyAgent-kenneth |
+| **OS** | Ubuntu 24.04 LTS |
+| **Region** | Singapore, Zone A (`ap-southeast-1a`) |
+| **Specs** | 4 GB RAM, 2 vCPUs, 80 GB SSD |
+| **Instance type** | General purpose |
+| **Networking** | Dual-stack |
+| **Public IPv4** | `18.143.130.248` |
+| **Private IPv4** | `172.26.11.67` |
+| **SSH username** | `ubuntu` |
+
+![Instance Details](screens/lightsail_screen7.png)
+
+### Step 8 — Connect via SSH
+
+You can connect using the **browser-based SSH client** (click **Connect using SSH**) or use your own terminal:
+
+```bash
+ssh ubuntu@18.143.130.248
+```
+
+![SSH Terminal](screens/lightsail_screen8.png)
+
+---
+
 # LLM Gateway — Travel Cost Estimation Agent
 
 A LangChain/LangGraph test script that connects to an **AWS-hosted LLM Gateway** (Ollama-compatible API fronting Claude Sonnet 4.5, behind an AWS Application Load Balancer) and demonstrates **tool calling** with a travel cost estimation agent.
