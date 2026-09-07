@@ -1,0 +1,26 @@
+{
+  "model": "sonnet4.5",
+  "messages": [
+    {"role": "user", "content": "What is the weather in Singapore? Use the get_weather tool."},
+    {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "get_weather", "arguments": {"city": "Singapore"}}}]},
+    {"role": "tool", "content": "{\"temp\": 31, \"condition\": \"sunny\"}"}
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {"type": "string", "description": "City name"}
+          },
+          "required": ["city"]
+        }
+      }
+    }
+  ],
+  "stream": false,
+  "options": {"num_predict": 200}
+}

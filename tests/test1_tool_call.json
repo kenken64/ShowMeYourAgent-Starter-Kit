@@ -1,0 +1,38 @@
+{
+  "model": "sonnet4.5",
+  "messages": [
+    {"role": "user", "content": "What is the weather in Singapore? Use the get_weather tool."}
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {"type": "string", "description": "City name"}
+          },
+          "required": ["city"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "calculate",
+        "description": "Evaluate a math expression",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "expression": {"type": "string", "description": "Math expression, e.g. 2+2*3"}
+          },
+          "required": ["expression"]
+        }
+      }
+    }
+  ],
+  "stream": false,
+  "options": {"num_predict": 300}
+}
