@@ -86,6 +86,173 @@ ssh ubuntu@18.xxx.xxx.xxx
 
 ---
 
+# Install and Configure OpenClaw
+
+Step-by-step guide to install [OpenClaw](https://openclaw.ai) — an AI agent that manages the box — on the Lightsail instance, and connect it to a self-hosted, Ollama-compatible gateway backed by AWS Bedrock (the same gateway set up in the LLM Gateway section below).
+
+### Step 1 — Connect to the instance
+
+Open the Lightsail instance and click **Connect using SSH** (or use your own SSH client, as in the provisioning guide above).
+
+![Connect to instance](screens/openclaw/01-connect-instance.png)
+
+### Step 2 — Install the OpenCode CLI
+
+OpenCode is used later to drive OpenClaw's configuration conversationally.
+
+```bash
+curl -fsSL https://opencode.ai/install | bash
+source ~/.bashrc
+```
+
+![Install OpenCode](screens/openclaw/02-install-opencode.png)
+
+### Step 3 — Install Node.js via nvm
+
+OpenClaw ships as an npm package, so install `nvm` and Node 24 first.
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash
+\. "$HOME/.nvm/nvm.sh"
+nvm install 24
+```
+
+![Install Node via nvm](screens/openclaw/03-install-node.png)
+
+### Step 4 — Verify Node.js and npm
+
+```bash
+node -v   # v24.20.0
+npm -v    # 11.19.0
+```
+
+![Verify Node install](screens/openclaw/04-verify-node.png)
+
+### Step 5 — Install OpenClaw
+
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash
+```
+
+The installer detects Node.js, installs the `openclaw` npm package, and links the `openclaw` binary into the active nvm Node version.
+
+![Install OpenClaw](screens/openclaw/05-install-openclaw.png)
+
+### Step 6 — Run the onboarding wizard
+
+Installation drops straight into the onboarding wizard (re-run it any time with `openclaw onboard`). Read the security disclaimer — **OpenClaw runs an AI agent with real access to the machine** (see the [security guide](https://docs.openclaw.ai/gateway/security)) — then choose **Quick start**.
+
+![OpenClaw onboarding wizard](screens/openclaw/06-onboarding-wizard.png)
+
+### Step 7 — Review AI detection results
+
+Quick start scans the box for usable AI access. On a fresh instance nothing is found yet, so it falls back to manual provider setup and prints the next steps:
+
+| Item | Value |
+|---|---|
+| Workspace | `/home/ubuntu/.openclaw/workspace` |
+| Add AI later | `openclaw onboard` |
+| Add a channel | `openclaw channels add` |
+| Open dashboard | `openclaw dashboard` |
+
+![AI detection results](screens/openclaw/07-ai-detection.png)
+
+### Step 8 — Verify the installed files
+
+```bash
+ls -al ~
+cd ~/.openclaw && ls
+```
+
+`~/.openclaw` holds `openclaw.json` (the live config), `openclaw.json.bak`, and the agent `state`.
+
+![Verify installed files](screens/openclaw/08-verify-files.png)
+
+### Step 9 — Launch OpenCode against the OpenClaw config
+
+From inside `~/.openclaw`, run OpenCode in unattended mode so it can edit the config directly:
+
+```bash
+opencode --yolo
+```
+
+![Launch OpenCode](screens/openclaw/09-launch-opencode.png)
+
+### Step 10 — Configure OpenClaw for a self-hosted Bedrock-proxy gateway
+
+At the OpenCode prompt, describe the gateway and hand over its URL, API key, and model ID (use your own AWS LLM Gateway values):
+
+```
+Configure openclaw using a self-hosted Ollama server that will proxy to AWS Bedrock.
+This is the url and api key
+LLM_GATEWAY_URL=http://<your-alb-dns-name>
+LLM_GATEWAY_API_KEY=<your-api-key>
+LLM_MODEL=global.anthropic.claude-sonnet-4-5-20250929-v1:0
+```
+
+![Configure Bedrock proxy prompt](screens/openclaw/10-configure-bedrock-prompt.png)
+
+OpenCode edits `~/.openclaw/openclaw.json` and adds a new provider:
+
+```json
+{
+  "model": "bedrock-ollama/global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  "provider": {
+    "bedrock-ollama": {
+      "api": "http://<your-alb-dns-name>/v1",
+      "npm": "openai",
+      "options": { "apiKey": "<your-api-key>" },
+      "models": {
+        "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {
+          "name": "Claude Sonnet 4.5 (via Bedrock)",
+          "tool_call": true,
+          "attachment": true
+        }
+      }
+    }
+  }
+}
+```
+
+Restart OpenClaw after saving for the change to take effect.
+
+![Provider config result](screens/openclaw/11-provider-config-result.png)
+
+### Step 11 — Known issue: AWS WAF blocks large request bodies
+
+A real agent turn (system prompt + tool schemas) can exceed the default AWS WAF body-inspection limit on the ALB (~8 KiB), returning `403 Forbidden` even though small test chats succeed. Fix it by raising or removing the oversize-body rule on the ALB's WAF (set oversize handling to **CONTINUE** instead of blocking) — no OpenClaw-side config change is needed.
+
+![WAF 8 KiB request body issue](screens/openclaw/12-waf-8kb-issue.png)
+
+### Step 12 — Restart the OpenClaw gateway
+
+```bash
+ps aux | grep -i openclaw
+sudo systemctl restart openclaw-gateway
+sudo systemctl status openclaw-gateway
+```
+
+Once restarted, the gateway runs as the `openclaw-gateway.service` systemd unit, listening on `127.0.0.1:18789`, and reloads `openclaw.json` automatically. Verify with:
+
+```bash
+openclaw agent --model bedrock-ollama/global.anthropic.claude-sonnet-4-5-20250929-v1:0 -m "hello"
+```
+
+![Restart the gateway](screens/openclaw/13-restart-gateway.png)
+
+### Step 13 — Tune the context window and token budget
+
+The model's 200K-token context is a hard ceiling. To keep agent turns comfortably under both that limit and the WAF body-size limit:
+
+1. Leave `compaction.enabled: true` so old turns get summarized automatically.
+2. Keep `contextWindow: 200000` accurate; lower `maxTokens` (e.g. from 8192 to 4096) to free up more room for input per request.
+3. Point agents at files in the workspace instead of pasting large documents into prompts.
+4. Trim skill/system prompt content — every instruction token counts against the same budget.
+
+![Tune context window](screens/openclaw/14-tune-context-window.png)
+
+---
+
 # LLM Gateway — Travel Cost Estimation Agent
 
 A LangChain/LangGraph test script that connects to an **AWS-hosted LLM Gateway** (Ollama-compatible API fronting Claude Sonnet 4.5, behind an AWS Application Load Balancer) and demonstrates **tool calling** with a travel cost estimation agent.
@@ -147,28 +314,46 @@ LLM_MODEL=global.anthropic.claude-sonnet-4-5-20250929-v1:0
 .venv/bin/python test_llm_gateway.py
 ```
 
+There is also a **LangGraph-driven version**, `test_llm_gateway_langgraph.py`, which runs the exact same request/tool/respond cycle through an actual compiled `StateGraph` (`graph.invoke(...)`) instead of a plain Python `while` loop:
+
+```bash
+.venv/bin/python test_llm_gateway_langgraph.py
+```
+
+It uses the same `.env`, the same `estimate_trip_cost` tool, and the same system/tool-call prompts — only the control flow differs (see [How tool calling works here](#how-tool-calling-works-here)).
+
 ## Project structure
 
 ```
 .
-├── test_llm_gateway.py   # Main script — agent loop + tool calling
-├── .env                  # Gateway URL, API key, model (not committed)
-└── .venv/                # Python virtual environment
+├── test_llm_gateway.py            # Manual while-loop version — agent loop + tool calling
+├── test_llm_gateway_langgraph.py  # Same agent, driven by a compiled LangGraph StateGraph
+├── .env                           # Gateway URL, API key, model (not committed)
+└── .venv/                         # Python virtual environment
 ```
 
 ## How tool calling works here
 
-The gateway does **not** implement Ollama's native tool-calling protocol (the `tools` field in `/api/chat` is silently ignored). To work around this:
+The gateway does **not** implement Ollama's native tool-calling protocol (the `tools` field in `/api/chat` is silently ignored). To work around this, the model is instructed to reply with only a JSON tool request when a cost estimate is needed:
 
-1. **System prompt** instructs the model to reply with only a JSON tool request when a cost estimate is needed:
-   ```json
-   {"tool": "estimate_trip_cost", "args": {"destination": "Tokyo", "days": 2, "travelers": 2, "comfort": "mid"}}
-   ```
-2. **`extract_tool_call()`** parses the JSON from the model's text response
-3. **`run_agent()`** executes the tool via `estimate_trip_cost.invoke(args)` and feeds the result back to the model
-4. The model then presents the final answer using the **real** tool data
+```json
+{"tool": "estimate_trip_cost", "args": {"destination": "Tokyo", "days": 2, "travelers": 2, "comfort": "mid"}}
+```
 
-The LangGraph `StateGraph` + `ToolNode` setup is still present in the script (lines 140–191) for reference, but the actual run uses the manual loop since native tool calls never arrive from this gateway.
+**`test_llm_gateway.py`** handles this with a manual loop:
+
+1. **`extract_tool_call()`** parses the JSON from the model's text response
+2. **`run_agent()`** executes the tool via `estimate_trip_cost.invoke(args)` and feeds the result back to the model in a `while`-style loop (max 4 iterations)
+3. The model then presents the final answer using the **real** tool data
+
+A `StateGraph` + `ToolNode` setup is also present in this file (lines 140–191) but is dead code kept for reference — LangGraph's built-in `tools_condition`/`ToolNode` key off `message.tool_calls`, which this gateway never populates, so it can't drive the actual run.
+
+**`test_llm_gateway_langgraph.py`** solves that by building a real, working graph around the same JSON-parsing logic instead of the prebuilt tool nodes:
+
+- `chatbot` node — invokes the model with retry, same as `invoke_with_retry()`
+- `route_after_chatbot` — a conditional edge that calls `extract_tool_call()` on the latest message text and routes to `"tools"` when a request is found, or `END` otherwise
+- `tools` node (`call_tool`) — parses the JSON, invokes `estimate_trip_cost`, and appends the result as the next user message
+- `tools → chatbot` edge closes the loop; `graph.invoke()` runs it end to end, bounded by `recursion_limit` (raises `GraphRecursionError`, caught and reported as "Max tool-call iterations reached")
 
 ## The `estimate_trip_cost` tool
 
