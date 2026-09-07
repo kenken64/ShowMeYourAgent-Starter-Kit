@@ -192,22 +192,25 @@ LLM_MODEL=global.anthropic.claude-sonnet-4-5-20250929-v1:0
 
 ![Configure Bedrock proxy prompt](screens/openclaw/10-configure-bedrock-prompt.png)
 
-OpenCode edits `~/.openclaw/openclaw.json` and adds a new provider:
+OpenCode edits `~/.openclaw/openclaw.json` and adds a new provider (note the provider type is `"api": "ollama"`, not `"openai"`):
 
 ```json
 {
-  "model": "bedrock-ollama/global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-  "provider": {
-    "bedrock-ollama": {
-      "api": "http://<your-alb-dns-name>/v1",
-      "npm": "openai",
-      "options": { "apiKey": "<your-api-key>" },
-      "models": {
-        "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {
-          "name": "Claude Sonnet 4.5 (via Bedrock)",
-          "tool_call": true,
-          "attachment": true
-        }
+  "models": {
+    "providers": {
+      "ollama": {
+        "baseUrl": "https://<your-custom-domain>",
+        "apiKey": "<your-api-key>",
+        "api": "ollama",
+        "headers": {
+          "Authorization": "Bearer <your-api-key>"
+        },
+        "models": [
+          {
+            "id": "sonnet4.5:latest",
+            "name": "Claude Sonnet 4.5"
+          }
+        ]
       }
     }
   }
@@ -235,7 +238,7 @@ sudo systemctl status openclaw-gateway
 Once restarted, the gateway runs as the `openclaw-gateway.service` systemd unit, listening on `127.0.0.1:18789`, and reloads `openclaw.json` automatically. Verify with:
 
 ```bash
-openclaw agent --model bedrock-ollama/global.anthropic.claude-sonnet-4-5-20250929-v1:0 -m "hello"
+openclaw agent --model ollama/sonnet4.5:latest -m "hello"
 ```
 
 ![Restart the gateway](screens/openclaw/13-restart-gateway.png)
