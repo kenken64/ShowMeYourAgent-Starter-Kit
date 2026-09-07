@@ -54,17 +54,16 @@ Output format:
 
 SYSTEM = """You are a travel cost estimation agent.
 
-Rules:
-- When user asks "total cost", ALWAYS call estimate_trip_cost with the latest trip parameters from conversation.
-- Do not invent cost figures. Always use the estimate_trip_cost tool for cost estimates.
-
-IMPORTANT - Tool calling protocol (this gateway has no native tool support):
-- To call the tool, reply with ONLY this JSON and nothing else:
-  {"tool": "estimate_trip_cost", "args": {"destination": "<str>", "days": <int>, "travelers": <int>, "comfort": "<budget|mid|premium>"}}
-- After you receive the tool result, present it to the user.
-
 Output format:
 1) Total cost (with assumptions)
+"""
+
+# Tool-calling instructions sent as part of the user message (not system prompt).
+# Useful when the gateway overrides or ignores the system prompt.
+TOOL_CALL_INSTRUCTIONS = """
+When the user asks for a cost estimate, you MUST first reply with ONLY this JSON and nothing else:
+{"tool": "estimate_trip_cost", "args": {"destination": "<str>", "days": <int>, "travelers": <int>, "comfort": "<budget|mid|premium>"}}
+Do not invent cost figures. After you receive the tool result, present it to the user.
 """
 
 """## 4) Tool - estimate trip cost"""
@@ -236,7 +235,7 @@ def invoke_with_retry(messages, max_retries=5, backoff=3):
 def run_agent(user_msg: str):
     messages = [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": user_msg},
+        {"role": "user", "content": TOOL_CALL_INSTRUCTIONS + "\n" + user_msg},
     ]
     for _ in range(4):  # max iterations
         reply = invoke_with_retry(messages)
