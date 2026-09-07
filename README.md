@@ -1,15 +1,18 @@
 # LLM Gateway — Travel Cost Estimation Agent
 
-A LangChain/LangGraph test script that connects to an LLM gateway (Ollama-compatible API fronting Claude Sonnet 4.5) and demonstrates **tool calling** with a travel cost estimation agent.
+A LangChain/LangGraph test script that connects to an **AWS-hosted LLM Gateway** (Ollama-compatible API fronting Claude Sonnet 4.5, behind an AWS Application Load Balancer) and demonstrates **tool calling** with a travel cost estimation agent.
+
+This project is used to **test the AWS API key provided LLM Gateway** — verifying connectivity, authentication via `X-API-Key` header, and end-to-end tool-calling behavior through the AWS ALB endpoint.
 
 ## What it does
 
-1. Connects to the LLM gateway via `ChatOllama` (Ollama-compatible `/api/chat` endpoint)
-2. Sends a user query: *"Plan a 2-day Tokyo trip for 2 adults. Mid comfort. how much will be the cost"*
-3. The model emits a JSON tool request (the gateway has no native tool-call support, so a JSON protocol is used)
-4. The script parses the JSON, **actually invokes** the `estimate_trip_cost` tool, and feeds the result back
-5. The model presents the final answer driven by the real tool output
-6. Prints the auto-generated OpenAI-compatible tool schema
+1. Connects to the **AWS LLM Gateway** via `ChatOllama` (Ollama-compatible `/api/chat` endpoint behind an AWS ALB)
+2. Authenticates using the provided **AWS API key** (sent as `X-API-Key` header)
+3. Sends a user query: *"Plan a 2-day Tokyo trip for 2 adults. Mid comfort. how much will be the cost"*
+4. The model emits a JSON tool request (the gateway has no native tool-call support, so a JSON protocol is used)
+5. The script parses the JSON, **actually invokes** the `estimate_trip_cost` tool, and feeds the result back
+6. The model presents the final answer driven by the real tool output
+7. Prints the auto-generated OpenAI-compatible tool schema
 
 ### Example output
 
@@ -33,20 +36,20 @@ python3 -m venv .venv
 
 ### 2. Create a `.env` file
 
-Copy the template below into a file named `.env` in the project root:
+Copy the template below into a file named `.env` in the project root. Replace the placeholder values with the **AWS-provided** credentials:
 
 ```env
-# LLM Gateway configuration
+# AWS LLM Gateway configuration
 LLM_GATEWAY_URL=http://llm-wrapper-alb-2110380302.ap-southeast-1.elb.amazonaws.com
-LLM_GATEWAY_API_KEY=your-api-key-here
+LLM_GATEWAY_API_KEY=your-aws-provided-api-key-here
 LLM_MODEL=global.anthropic.claude-sonnet-4-5-20250929-v1:0
 ```
 
 | Variable | Description |
 |---|---|
-| `LLM_GATEWAY_URL` | Base URL of the Ollama-compatible LLM gateway |
-| `LLM_GATEWAY_API_KEY` | API key sent as `X-API-Key` header |
-| `LLM_MODEL` | Model identifier to use |
+| `LLM_GATEWAY_URL` | AWS ALB endpoint of the Ollama-compatible LLM gateway |
+| `LLM_GATEWAY_API_KEY` | AWS-provided API key, sent as `X-API-Key` header for authentication |
+| `LLM_MODEL` | Model identifier available on the gateway |
 
 > **Note:** All three variables are **required** — the script will raise an error if any are missing.
 
@@ -94,6 +97,6 @@ Plus a 12% contingency buffer. Excludes international flights, insurance, and vi
 
 ## Known issues & notes
 
-- **ALB rate limiting:** The gateway's load balancer may return `403 Forbidden` on rapid successive requests. The script includes `invoke_with_retry()` with linear backoff (3s, 6s, 9s…) to handle this.
+- **AWS ALB rate limiting:** The gateway's Application Load Balancer may return `403 Forbidden` on rapid successive requests. The script includes `invoke_with_retry()` with linear backoff (3s, 6s, 9s…) to handle this.
 - **Duplicate `SYSTEM` prompt:** The first `SYSTEM` definition (lines 42–53) is dead code — the second definition (lines 55–68) overwrites it. Kept for reference from the original Colab notebook.
 - **Graph diagram:** `draw_mermaid_png()` renders as an IPython `Image` object — visible in Jupyter/Colab but not in terminal output.
