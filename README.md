@@ -5,6 +5,7 @@
 | **[Provision AWS Lightsail Instance](#provision-aws-lightsail-instance)**<br>Provision the AWS Lightsail instance used to host the LLM Gateway. | [Step 1 — Open AWS Console](#step-1--open-aws-console) · [Step 2 — Search for Lightsail](#step-2--search-for-lightsail) · [Step 3 — Create Instance](#step-3--create-instance) · [Step 4 — Choose Instance Image](#step-4--choose-instance-image) · [Step 5 — Choose Instance Plan](#step-5--choose-instance-plan) · [Step 6 — Configure & Launch](#step-6--configure--launch) · [Step 7 — Instance Details](#step-7--instance-details) · [Step 8 — Connect via SSH](#step-8--connect-via-ssh) |
 | **[Install and Configure OpenClaw](#install-and-configure-openclaw)**<br>Install OpenClaw on the instance and connect it to the self-hosted Bedrock-backed gateway. | [Step 1 — Connect to the instance](#step-1--connect-to-the-instance) · [Step 2 — Install the OpenCode CLI](#step-2--install-the-opencode-cli) · [Step 3 — Install Node.js via nvm](#step-3--install-nodejs-via-nvm) · [Step 4 — Verify Node.js and npm](#step-4--verify-nodejs-and-npm) · [Step 5 — Install OpenClaw](#step-5--install-openclaw) · [Step 6 — Run the onboarding wizard](#step-6--run-the-onboarding-wizard) · [Step 7 — Review AI detection results](#step-7--review-ai-detection-results) · [Step 8 — Verify the installed files](#step-8--verify-the-installed-files) · [Step 9 — Launch OpenCode against the OpenClaw config](#step-9--launch-opencode-against-the-openclaw-config) · [Step 10 — Configure OpenClaw for a self-hosted Bedrock-proxy gateway](#step-10--configure-openclaw-for-a-self-hosted-bedrock-proxy-gateway) · [Step 11 — Known issue: AWS WAF blocks large request bodies](#step-11--known-issue-aws-waf-blocks-large-request-bodies) · [Step 12 — Restart the OpenClaw gateway](#step-12--restart-the-openclaw-gateway) · [Step 13 — Tune the context window and token budget](#step-13--tune-the-context-window-and-token-budget) |
 | **[Install Hermes and Configure](#install-hermes-and-configure)**<br>Install the Hermes Agent on its own instance and bridge it to the same AWS LLM Gateway via a custom proxy. | [Step 1 — Provision a Lightsail instance for Hermes](#step-1--provision-a-lightsail-instance-for-hermes) · [Step 2 — Install Node.js via nvm](#step-2--install-nodejs-via-nvm) · [Step 3 — Install the OpenCode CLI](#step-3--install-the-opencode-cli) · [Step 4 — Install the Hermes Agent](#step-4--install-the-hermes-agent) · [Step 5 — Onboarding: pick a terminal backend](#step-5--onboarding-pick-a-terminal-backend) · [Step 6 — Onboarding: enable messaging platforms](#step-6--onboarding-enable-messaging-platforms) · [Step 7 — Onboarding: choose which tools to enable](#step-7--onboarding-choose-which-tools-to-enable) · [Step 8 — Installation complete — reload your shell](#step-8--installation-complete--reload-your-shell) · [Step 9 — (Optional) Reconnect with your own SSH client](#step-9--optional-reconnect-with-your-own-ssh-client) · [Step 10 — Known issue: no generic Ollama-compatible provider](#step-10--known-issue-no-generic-ollama-compatible-provider--build-a-proxy-with-opencode) · [Step 11 — Verify the proxy and register it as a Hermes model alias](#step-11--verify-the-proxy-and-register-it-as-a-hermes-model-alias) · [Step 12 — Switch models and test end-to-end](#step-12--switch-models-and-test-end-to-end) |
+| **[Install and Configure GitHub Copilot CLI](#install-and-configure-github-copilot-cli)**<br>Install Copilot CLI and connect it to the AWS Bedrock-backed LLM Gateway using Copilot's BYOK configuration. | [Step 1 — Install Copilot CLI](#step-1--install-copilot-cli) · [Step 2 — Configure the AWS Bedrock provider](#step-2--configure-the-aws-bedrock-provider) · [Step 3 — Start Copilot CLI](#step-3--start-copilot-cli) · [Step 4 — Run a non-interactive task](#step-4--run-a-non-interactive-task) · [Troubleshooting](#copilot-cli-troubleshooting) |
 | **[LLM Gateway — Travel Cost Estimation Agent](#llm-gateway--travel-cost-estimation-agent)**<br>LangChain/LangGraph test script demonstrating tool calling against the AWS LLM Gateway. | [What it does](#what-it-does) *(→ [Example output](#example-output))* · [Setup](#setup) *(→ [1. Create a virtual environment](#1-create-a-virtual-environment-and-install-dependencies) · [2. Create a `.env` file](#2-create-a-env-file) · [3. Run](#3-run))* · [Project structure](#project-structure) · [How tool calling works here](#how-tool-calling-works-here) · [The `estimate_trip_cost` tool](#the-estimate_trip_cost-tool) · [Known issues & notes](#known-issues--notes) |
 
 # Provision AWS Lightsail Instance
@@ -449,6 +450,81 @@ After fixing the proxy — skipping the wrapper tags, aliasing `execute_command`
 ![Fibonacci test result](screens/hermes/18-fibonacci-test-result.png)
 
 ![Full round-trip confirmed](screens/hermes/19-final-summary.png)
+
+---
+
+# Install and Configure GitHub Copilot CLI
+
+This guide installs [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli) and configures it to use the project's AWS Bedrock-backed, OpenAI-compatible LLM Gateway. Copilot CLI calls the gateway; the gateway handles authentication and routes requests to Claude on AWS Bedrock.
+
+### Step 1 — Install Copilot CLI
+
+Copilot CLI requires Node.js 22 or later when installed with npm. Install it globally and verify the command:
+
+```bash
+npm install -g @github/copilot
+copilot --version
+```
+
+If Node.js is not installed yet, use the same nvm setup from the [OpenClaw guide](#step-3--install-nodejs-via-nvm) or the [Hermes guide](#step-2--install-nodejs-via-nvm), then install Copilot CLI.
+
+### Step 2 — Configure the AWS Bedrock provider
+
+The gateway exposes an OpenAI-compatible endpoint at `/v1`. Export the gateway URL, the API key supplied for this project, and the exact Bedrock model ID before starting Copilot:
+
+```bash
+export COPILOT_PROVIDER_BASE_URL="https://api.softwaresystems.app/v1"
+export COPILOT_PROVIDER_TYPE="openai"
+export COPILOT_PROVIDER_API_KEY="<your-aws-llm-gateway-api-key>"
+export COPILOT_MODEL="global.anthropic.claude-sonnet-4-5-20250929-v1:0"
+```
+
+`COPILOT_PROVIDER_TYPE=openai` tells Copilot to use the OpenAI-compatible protocol. The model must support streaming and tool calling; the Claude Sonnet model above is the model verified with this gateway. Keep the API key in the environment only — do not commit it to the repository or paste it into a screenshot.
+
+The working setup is shown below. The key is redacted in the screenshot:
+
+![Copilot CLI using the AWS Bedrock-backed gateway](<screens/copilot/Screenshot 2026-09-17 at 12.53.35 PM-redacted.png>)
+
+### Step 3 — Start Copilot CLI
+
+From the project directory, start an interactive session:
+
+```bash
+copilot --model "$COPILOT_MODEL"
+```
+
+Then try a small request such as:
+
+```text
+Create a simple standalone Hello, world! HTML page named index.html in the current directory. Only create index.html and leave existing files untouched.
+```
+
+Copilot may ask you to trust the current directory. Review the requested permissions before accepting them. With BYOK variables configured, GitHub authentication is not required for model requests; GitHub login is only needed for GitHub-hosted features.
+
+### Step 4 — Run a non-interactive task
+
+For a scripted task, pass the prompt with `-p` and keep the model explicit:
+
+```bash
+copilot \
+  --model "$COPILOT_MODEL" \
+  -p "Create a simple standalone Hello, world! HTML page named index.html in the current directory. Only create index.html and leave existing files untouched." \
+  --silent \
+  --no-auto-update \
+  --no-ask-user \
+  --allow-tool="write($PWD/index.html)" \
+  --deny-tool='shell' \
+  --secret-env-vars=COPILOT_PROVIDER_API_KEY
+```
+
+The `--allow-tool` and `--deny-tool` options constrain the example to writing the requested file without shell access. Adjust permissions for the task you actually want Copilot to perform.
+
+### Copilot CLI troubleshooting
+
+- **Provider or model errors:** confirm that `COPILOT_PROVIDER_BASE_URL` ends in `/v1` and that `COPILOT_MODEL` exactly matches `global.anthropic.claude-sonnet-4-5-20250929-v1:0`.
+- **Authentication errors:** verify that the gateway API key is current and that `COPILOT_PROVIDER_API_KEY` is exported in the same shell that starts Copilot.
+- **Tool-calling or streaming errors:** the configured model/provider must support both capabilities. Run `copilot help providers` to inspect the provider options supported by the installed CLI.
+- **Unexpected GitHub login prompt:** BYOK model requests can run without GitHub authentication, but GitHub-hosted features still require a Copilot login.
 
 ---
 
